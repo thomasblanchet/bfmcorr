@@ -13,7 +13,7 @@ ssc install bfmcorr
 ## Features
 
 - Reweights observations in the survey, enforces consistency with the tax data, and replaces observations at the top of the distribution to increase precision.
-- Automatically determines the "merging point" between the tax and the survey data, and extrapolates the shape of the nonresponse function if the tax data does not cover a large enough fraction of the distribution.
+- Automatically determines the “merging point” between the tax and the survey data, and extrapolates the shape of the nonresponse function if the tax data does not cover a large enough fraction of the distribution.
 - Can maintain the survey's representativeness in terms of other sociodemographic variables (age, gender, etc.)
 - Preserves survey microdata, including the household structure.
 - Can use tax data with different statistical units (households or individuals).
