@@ -58,7 +58,7 @@ The subcommand {cmd:lorenz} displays the Lorenz curves of the raw and the adjust
 {title:Subcommand postbfm summarize}
 
 {pstd}
-The subcommand {cmd:summarize} display a set of summary statistics on the distribution before and after correction.
+The subcommand {cmd:summarize} displays a set of summary statistics on the distribution before and after correction.
 By default, the results are simply displayed in the Stata output. You can specify the option {opt replace} to
 save the results in memory (thus erasing the current data). You can specify the option {opth ex:port(filename)} to
 export the results as an Excel file.
