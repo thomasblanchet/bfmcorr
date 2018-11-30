@@ -13,11 +13,11 @@ ssc install bfmcorr
 ## Features
 
 - Reweights observations in the survey enforce consistency with the tax data, and replaces observations at the top to increase precision.
-- Automatically determines the "merging point" between the tax and the survey data, and extrapolate the shape of the nonresponse function if the tax data does not cover a large enough part of the distribution.
+- Automatically determines the "merging point" between the tax and the survey data, and extrapolate the shape of the nonresponse function if the tax data does not cover a large enough fraction of the distribution.
 - Can maintain the survey representativeness in terms of other sociodemographic variables (age, gender, etc.)
 - Preserves survey microdata, including the household structure.
 - Can use tax data with different statistical units (households or individuals).
-- Can work with two different income variables: a comprehensive income variable assumes to drive nonresponse, and taxable income variable that corresponds to the tax data.
+- Can work with two different income variables: a comprehensive income variable assumed to drive nonresponse, and a taxable income variable that corresponds to the tax data.
 - Provides several diagnostic tools to analyse the correction.
 
 ## Documentation
@@ -28,7 +28,7 @@ For the description of the command, type `help bfmcorr`. For the description of 
 
 ## Example
 
-See the file `example.ado` for the complete example.
+See the file [`example.do`](example.do) for the complete example.
 
 ```stata
 bfmcorr using "$dir_dta/gpinter-brazil-2014.csv", ///
