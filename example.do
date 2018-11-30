@@ -19,13 +19,14 @@ tostring hh_id, gen(hid)
 
 keep hid person_weight male age ytotal_equalsplit
 
+// Distribution of age in deciles (to keep constant)
 xtile age_group = age, nquantiles(10)
 
 // Enforce constant weights within households
 egen yhh = mean(ytotal_equalsplit), by(hid)
-egen weight2 = mean(person_weight), by(hid)
-replace person_weight = weight2
-drop weight2
+egen weight = mean(person_weight), by(hid)
+replace person_weight = weight
+drop weight
 
 bfmcorr using "$dir_dta/gpinter-brazil-2014.csv", ///
 	weight(person_weight) income(yhh) households(hid) ///
@@ -33,4 +34,5 @@ bfmcorr using "$dir_dta/gpinter-brazil-2014.csv", ///
 
 // Show the shape of the bias
 postbfm biasplot
+// Compare the Lorenz curves
 postbfm lorenz
