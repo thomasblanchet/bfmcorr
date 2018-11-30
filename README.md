@@ -28,7 +28,7 @@ For the description of the command, type `help bfmcorr`. For the description of 
 
 ## Example
 
-See the file [`example.do`](example.do) for the complete example.
+See the file [`example.do`](example.do) for the complete example. It showcases the method with Brazil data for 2014.
 
 ```stata
 bfmcorr using "$dir_dta/gpinter-brazil-2014.csv", ///
@@ -40,7 +40,7 @@ bfmcorr using "$dir_dta/gpinter-brazil-2014.csv", ///
 postbfm biasplot
 ```
 ![Shape of the bias.](biasplot-brazil-2014.png)
-```
+```stata
 // Compare the Lorenz curves before and after correction
 postbfm lorenz
 ```
