@@ -192,7 +192,7 @@ program postbfm
 			xlabel(, axis(2) noticks nolabel) ylabel(, axis(2) noticks nolabel) ///
 			/// title("Adjusted vs. Raw Lorenz curves. `country' `year'", size(medium) color(black)) ///
 			ytitle("Cumulative income share") xtitle("Cumulative frequency") ///
-			graphregion(color(white)) legend(off) scale(1.3)
+			graphregion(color(white)) /*legend(off)*/ scale(1.3)
 	}
 				
 	// ---------------------------------------------------------------------- //
