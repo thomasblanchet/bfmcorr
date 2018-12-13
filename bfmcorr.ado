@@ -5,6 +5,7 @@ program bfmcorr, eclass
 	syntax using/, Weight(varname) INCome(varname) HOUseholds(varname) TAXUnit(string) ///
 		[TAXINCome(varname) ///
 		HOLDMARgins(varlist) VARMARgins(varlist) FREQMARgins(numlist >0 <1) ///
+		INCOMECOMPosition(string) INCOMEPOPulation(string) ///
 		TRUSTstart(string) MERGingpoint(string) ///
 		TAXPerc(name) TAXThr(name) TAXAvg(name) THETALIMit(real 5) MINBracket(real 10) ///
 		NOREPlace Knn(real 10) SAMPletop(real 0.1) ///
@@ -16,6 +17,12 @@ program bfmcorr, eclass
 	
 	// Tax data file exists
 	confirm file "`using'"
+	if ("`incomecomposition'" != "") {
+		confirm file "`incomecomposition'"
+	}
+	if ("`incomepopulation'" != "") {
+		confirm file "`incomepopulation'"
+	}
 	
 	// No weights missing
 	capture assert !missing(`weight')
@@ -684,7 +691,6 @@ program bfmcorr, eclass
 	quietly use "`taxdata'", clear
 	quietly keep if (`taxperc' >= `mergingpoint')
 	
-	
 	quietly count
 	local nbrackets = r(N)
 	
@@ -808,6 +814,110 @@ program bfmcorr, eclass
 	quietly save "`rawdata'", replace
 	
 	// ---------------------------------------------------------------------- //
+	// Import data for calibration on income composition, if any
+	// ---------------------------------------------------------------------- //
+	
+	local usecomp 0
+	if ("`incomecomposition'" != "") {
+		// Identify the format of the tax data
+		if (substr("`incomecomposition'", -4, .) == ".xls" | substr("`incomecomposition'", -5, .) == ".xlsx") {
+			// Excel format
+			quietly import excel using "`incomecomposition'", firstrow clear
+		}
+		else if (substr("`incomecomposition'", -4, .) == ".csv") {
+			// CSV format
+			quietly import delimited using "`incomecomposition'", varnames(1) clear
+		}
+		else {
+			// Stata format
+			quietly use "`incomecomposition'", clear
+		}
+		
+		capture confirm variable thr
+		if (_rc) {
+			display as error "variable 'thr' missing from file `incomecomposition'"
+			exit 111
+		}
+		
+		// Only keep the tax data above the merging point
+		quietly keep if (thr >= `mergingthr')
+		
+		quietly count
+		if (r(N) == 0) {
+			display as error "no income composition data above merging point; ignored"
+		}
+		else {
+			// Store the thresholds and shares to calibrate on
+			tempname compthr
+			mkmat thr, matrix(`compthr')
+			quietly ds thr, not
+			local compvars = r(varlist)
+			if ("`compvars'" == "") {
+				display as error "covariates missing from file `incomecomposition'"
+				exit 111
+			}
+			tempname compshares
+			mkmat `compvars', matrix(`compshares')
+			local usecomp 1
+		}
+	}
+	
+	// ---------------------------------------------------------------------- //
+	// Import data for calibration on population composition by income
+	// ---------------------------------------------------------------------- //
+	
+	local usepop 0
+	if ("`incomepopulation'" != "") {
+		// Identify the format of the tax data
+		if (substr("`incomepopulation'", -4, .) == ".xls" | substr("`incomepopulation'", -5, .) == ".xlsx") {
+			// Excel format
+			quietly import excel using "`incomepopulation'", firstrow clear
+		}
+		else if (substr("`incomepopulation'", -4, .) == ".csv") {
+			// CSV format
+			quietly import delimited using "`incomepopulation'", varnames(1) clear
+		}
+		else {
+			// Stata format
+			quietly use "`incomepopulation'", clear
+		}
+		
+		capture confirm variable thr
+		if (_rc) {
+			display as error "variable 'thr' missing from file `incomepopulation'"
+			exit 111
+		}
+		capture confirm variable p
+		if (_rc) {
+			display as error "variable 'p' missing from file `incomepopulation'"
+			exit 111
+		}
+		
+		// Only keep the tax data above the merging point
+		quietly keep if (thr >= `mergingthr')
+		
+		quietly count
+		if (r(N) == 0) {
+			display as error "no population composition data above merging point; ignored"
+		}
+		else {
+			// Store the thresholds and shares to calibrate on
+			tempname popthr popperc
+			mkmat thr, matrix(`popthr')
+			mkmat p, matrix(`popperc')
+			quietly ds thr p, not
+			local popvars = r(varlist)
+			if ("`popvars'" == "") {
+				display as error "covariates missing from file `incomepopulation'"
+				exit 111
+			}
+			tempname popfreq
+			mkmat `popvars', matrix(`popfreq')
+			local usepop 1
+		}
+	}
+	
+	// ---------------------------------------------------------------------- //
 	// Perform linear calibration
 	// ---------------------------------------------------------------------- //
 	
@@ -892,11 +1002,91 @@ program bfmcorr, eclass
 	local margins `holdmargins' `varmargins' `income'
 	local nb_dummies_income: list sizeof dummies_income
 	local nvals_margins `nvals_margins' `nb_dummies_income'
+	
+	// Create variables for income composition
+	if (`usecomp') {
+		local n = rowsof(`compshares')
 		
+		foreach v in `compvars' {
+			capture confirm variable `v'
+			if (_rc) {
+				display as error "income composition variable `v' not found in the survey; ignored"
+				continue
+			}
+			local j = colnumb(`compshares', "`v'")
+			forvalue i = 1/`n' {
+				local s = `compshares'[`i', `j']
+				if (`i' < `n') {
+					tempvar share`v'`i'
+					quietly generate `share`v'`i'' = (`taxincome' >= `compthr'[`i', 1] & `taxincome' < `compthr'[`i' + 1, 1])*(`v' - `s'*`taxincome')/`compthr'[`i', 1]
+					quietly replace `share`v'`i'' = 0 if missing(`v')
+				}
+				else {
+					tempvar share`v'`i'
+					quietly generate `share`v'`i'' = (`taxincome' >= `compthr'[`i', 1])*(`v' - `s'*`taxincome')/`compthr'[`i', 1]
+					quietly replace `share`v'`i'' = 0 if missing(`v')
+				}
+				local var_margins_comp `var_margins_comp' `share`v'`i''
+				matrix define `margins_target' = (`margins_target', 0)
+				local val = `compthr'[`i', 1]
+				local values_margins `values_margins' `val'
+			}
+			local nvars = `nvars' + 1
+			local margins `margins' "__comp_`v'"
+			local nvals_margins `nvals_margins' `n'
+		}
+	}
+	
+	// Create variables for population composition by income
+	if (`usepop') {
+		local n = rowsof(`popfreq')
+		
+		foreach v in `popvars' {
+			capture confirm variable `v'
+			if (_rc) {
+				display as error "population composition variable `v' not found in the survey; ignored"
+				continue
+			}
+			capture assert inlist(`v', 0, 1) | missing(`v')
+			if (_rc) {
+				display as error "population composition variable `v' is not a dummy; ignored"
+			}
+			local j = colnumb(`popfreq', "`v'")
+			forvalue i = 1/`n' {
+				local s = `popfreq'[`i', `j']
+				if (`i' < `n') {
+					tempvar pop`v'`i'
+					quietly generate `pop`v'`i'' = (`taxincome' >= `popthr'[`i', 1] & `taxincome' < `popthr'[`i' + 1, 1])*`v'
+					quietly replace `pop`v'`i'' = 0 if missing(`v')
+					matrix define `margins_target' = (`margins_target', `popsize'*`s'*(`popperc'[`i' + 1, 1] - `popperc'[`i', 1]))
+				}
+				else {
+					tempvar pop`v'`i'
+					quietly generate `pop`v'`i'' = (`taxincome' >= `popthr'[`i', 1])*`v'
+					quietly replace `pop`v'`i'' = 0 if missing(`v')
+					matrix define `margins_target' = (`margins_target', `popsize'*`s'*(1 - `popperc'[`i', 1]))
+				}
+				local var_margins_comp `var_margins_comp' `pop`v'`i''
+				local val = `popthr'[`i', 1]
+				local values_margins `values_margins' `val'
+			}
+			local nvars = `nvars' + 1
+			local margins `margins' "__pop_`v'"
+			local nvals_margins `nvals_margins' `n'
+		}
+		
+	}
+	
+	
 	// Collapse by household to enforce equal weights within household
 	tempfile data_nocollapse
 	quietly save "`data_nocollapse'"
-	collapse (mean) `weight' (sum) `dummies_margins' (sum) `dummies_income_svy', by(`households')
+	if ("`var_margins_comp'" == "") {
+		collapse (mean) `weight' (sum) `dummies_margins' (sum) `dummies_income_svy', by(`households')
+	}
+	else {
+		collapse (mean) `weight' (sum) `dummies_margins' (sum) `dummies_income_svy' (sum) `var_margins_comp', by(`households')
+	}
 	
 	// If the unit is households, then the income dummies must refer to that unit.
 	// Either the collpased income dummy is zero, meaning that the household isn't in the bracket
@@ -909,6 +1099,9 @@ program bfmcorr, eclass
 			quietly replace `v' = 1 if (`v' >= 1)
 		}
 	}
+	
+	local dummies_margins `dummies_margins' `var_margins_comp'
+	local dummies_margins_svy `dummies_margins_svy' `var_margins_comp'
 	
 	// Get corresponding view matrices
 	mata: X = 0
@@ -961,6 +1154,34 @@ program bfmcorr, eclass
 				
 				matrix `rfactors' = (`coefs'[`i' + 1, 1], r(mean), r(min), r(p50), r(max))
 				matrix rownames `rfactors' = "`var':`val'"
+				
+				matrix define `adjfactors' = (nullmat(`adjfactors') \ `rfactors')
+			}
+			else if (substr("`var'", 1, 7) == "__comp_") {
+				local var2 = substr("`var'", 8, .)
+				if (`k' < `nvals') {
+					quietly summarize `calfactor' if (`taxincome' >= `compthr'[`k', 1]) & (`taxincome' < `compthr'[`k' + 1, 1] & `var2' != 0), de
+				}
+				else {
+					quietly summarize `calfactor' if (`taxincome' >= `compthr'[`k', 1] & `var2' != 0), de
+				}
+				
+				matrix `rfactors' = (`coefs'[`i' + 1, 1], r(mean), r(min), r(p50), r(max))
+				matrix rownames `rfactors' = "`taxincome'#`var2':`val'"
+				
+				matrix define `adjfactors' = (nullmat(`adjfactors') \ `rfactors')
+			}
+			else if (substr("`var'", 1, 6) == "__pop_") {
+				local var2 = substr("`var'", 7, .)
+				if (`k' < `nvals') {
+					quietly summarize `calfactor' if (`taxincome' >= `popthr'[`k', 1]) & (`taxincome' < `popthr'[`k' + 1, 1] & `var2' == 1), de
+				}
+				else {
+					quietly summarize `calfactor' if (`taxincome' >= `popthr'[`k', 1] & `var2' == 1), de
+				}
+				
+				matrix `rfactors' = (`coefs'[`i' + 1, 1], r(mean), r(min), r(p50), r(max))
+				matrix rownames `rfactors' = "`taxincome'#`var2':`val'"
 				
 				matrix define `adjfactors' = (nullmat(`adjfactors') \ `rfactors')
 			}

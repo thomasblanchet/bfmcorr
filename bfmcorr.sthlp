@@ -48,6 +48,10 @@ see {help bfmcorr##calibration:calibration} for details{p_end}
 see {help bfmcorr##calibration:calibration} for details{p_end}
 {synopt:{opth freqmar:gins(numlist)}}values of the averages for the variables in the option {opt varmar:gins};
 see {help bfmcorr##calibration:calibration} for details{p_end}
+{synopt:{opth incomecomp:osition(numlist)}}file containing the taxable income composition by taxable income bracket;
+see {help bfmcorr##calibration:calibration} for details{p_end}
+{synopt:{opth incomepop:ulation(numlist)}}file containing the population composition by taxable income bracket;
+see {help bfmcorr##calibration:calibration} for details{p_end}
 
 {syntab:Options}
 {synopt:{opt min:bracket(real)}}minimum number of survey observations required in each tax bracket;
@@ -229,7 +233,8 @@ default is 20.
 {pstd}
 The calibration procedure improves the representativeness of the survey along several dimensions at the same time.
 The main point of the method is to ensure the survey's representativeness of top incomes using the tax data.
-But the procedure can also preserve or enforce representativeness of other variables.
+But the procedure can also preserve or enforce representativeness of other variables, and can enforce representativeness
+in terms of the composition of taxable income, or the composition of the population by income bracket.
 
 {pstd}
 First, there are variables for which the survey is assumed to be already representative, for instance because it was already reweighted using census data.
@@ -250,6 +255,63 @@ These variables and their distribution should be specified using the following a
 
 {phang}
 {opth freqmar:gins(numlist)} a {it:numlist} of averages between zero and one, matching the variables in the option {opt varmar:gins}.
+
+{pstd}
+The third case happens when we have additional information on the composition of taxable income by income bracket (ie. share of capital income),
+and/or additional information on population characteristics by income brackets (ie. fraction of women). These data should be specified in their
+own files using the following arguments:
+
+{phang}
+{opth incomecomp:osition(filename)} the name of a file with the composition of taxable income by taxable income bracket.
+Supports Stata, CSV and Excel files. The file must have the following format:
+
+{pmore}
+{hline 60}{break}
+{space 9}thr{space 10}{space 8}labor{space 9}{space 5}capital{break}
+{hline 60}{break}
+{space 8}1000{space 8}{space 11}0.93{space 7}{space 10}0.07{break}
+{space 8}2000{space 8}{space 11}0.90{space 7}{space 10}0.10{break}
+{space 8}3000{space 8}{space 11}0.88{space 7}{space 10}0.12{break}
+{space 9}...{space 8}{space 12}...{space 7}{space 11}...{break}
+{space 7}10000{space 8}{space 11}0.62{space 7}{space 10}0.38{break}
+{space 7}15000{space 8}{space 11}0.53{space 7}{space 10}0.47{break}
+{space 7}20000{space 8}{space 11}0.41{space 7}{space 10}0.59{break}
+{hline 60}
+
+{pstd}
+where {it:thr} refers to thresholds of the taxable income variable, and the other columns are shares of each income source
+in the corresponding income bracket. For example, here, 93% of the income of people earning between 1000 and 2000 in total comes from
+labor, while 7% comes from capital income. Each column name other than {it:thr} should correspond to a variable in the dataset,
+otherwise it will be ignored with a warning.
+
+{phang}
+{opth incomepop:ulation(filename)} the name of a file with the composition of population by taxable income bracket.
+Supports Stata, CSV and Excel files. The file must have the following format:
+
+{pmore}
+{hline 60}{break}
+{space 9}thr{space 10}p{space 8}women{space 9}{space 3}employees{break}
+{hline 60}{break}
+{space 8}1000{space 7}0.10{space 9}0.60{space 7}{space 10}0.90{break}
+{space 8}2000{space 7}0.15{space 9}0.56{space 7}{space 10}0.88{break}
+{space 8}3000{space 7}0.30{space 9}0.53{space 7}{space 10}0.89{break}
+{space 9}...{space 8}...{space 10}...{space 7}{space 11}...{break}
+{space 7}10000{space 7}0.90{space 9}0.37{space 7}{space 10}0.74{break}
+{space 7}15000{space 7}0.95{space 9}0.31{space 7}{space 10}0.71{break}
+{space 7}20000{space 7}0.99{space 9}0.25{space 7}{space 10}0.69{break}
+{hline 60}
+
+{pstd}
+where {it:thr} refers to thresholds of the taxable income variable, {it:p} refers to the corresponding fractile in the tax data, and the other columns refer the frequency of a
+given population characteristics in the tax data. For example, here, people earning between 1000 and 2000 represent 5% of the population and are between the 10% and the 15%
+fractile. Among them, 60% of are women, and 90% are employees. Each column name other than {it:thr} should correspond to a dummy variable in the dataset
+equal to 1 if the observation belongs to the population category, and 0 otherwise.
+
+{pstd}
+{bf:WARNING:} using too many variables in the calibration can cause convergence of the algorithm to fail. This is true in particular
+of the variables introduced by the arguments {opt incomecomp:osition} and {opt incomepop:ulation}, since the command does not attempt
+to regroup categories with too few observations automatically. If you get convergence issues, you can try regrouping variables
+or income brackets for composition data into fewer categories, and/or use a higher value for the {opt thetalim:it} and {opt min:bracket} arguments.
 
 {marker newobservations}{...}
 {title:New observations}
