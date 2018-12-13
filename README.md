@@ -18,6 +18,7 @@ ssc install bfmcorr
 - Preserves survey microdata, including the household structure.
 - Can use tax data with different statistical units (households or individuals).
 - Can work with two different income variables: a comprehensive income variable assumed to drive nonresponse in the survey, and a taxable income variable that corresponds to the tax data.
+- Can correct the survey to also match the composition of income by income bracket (eg. share of labor vs. capital) and/or the composition of the population by income bracket (eg. frequency of men vs. women).
 - Provides several diagnostic tools to analyse the correction.
 
 ## Documentation
