@@ -1300,35 +1300,6 @@ program bfmcorr, eclass
 			quietly count
 			display as text "`n_before' => " r(N) " observations (×" round(r(N)/`n_before', 0.01) ")"
 			
-			// Scramble people's ranks above replace point
-			preserve
-			quietly keep if (`taxincome' >= `replacethr')
-			gsort -`taxincome'
-			tempvar idx
-			quietly generate `idx' = _n
-			tempvar idxstart idxend
-			collapse (min) `idxstart'=`idx' (max) `idxend'=`idx', by(`hid' `pid')
-			sort `idxstart'
-			tempvar idxmin idxmax
-			quietly generate `idxmin' = `idxstart'[max(1, _n - `knn')]
-			quietly generate `idxmax' = `idxend'[min(_N, _n + `knn')]
-			drop `idxstart' `idxend'
-			tempfile list_idx
-			quietly save "`list_idx'", replace
-			restore
-			
-			quietly merge n:1 `hid' `pid' using "`list_idx'", nogenerate
-			gsort -`taxincome'
-			quietly replace `idxmin' = _n if missing(`idxmin')
-			quietly replace `idxmax' = _n if missing(`idxmax')
-			tempvar halton_unif
-			quietly generate `halton_unif' = .
-			mata: st_store(., st_varindex(st_local("halton_unif")), halton(st_nobs(), 1))
-			tempvar idx
-			quietly generate `idx' = `idxmin' + (`idxmax' - `idxmin')*`halton_unif'
-			sort `idx'
-			quietly drop `halton_unif' `idx' `idxmin' `idxmax'
-			
 			// Determine a new rank in the individual distribution for people above the threshold
 			gsort -`taxincome'
 			tempvar to_replace rank
@@ -1421,34 +1392,6 @@ program bfmcorr, eclass
 			quietly count
 			display as text "`n_before' => " r(N) " observations (×" round(r(N)/`n_before', 0.01) ")"
 			
-			// Scramble households' ranks
-			preserve
-			gsort -`taxincome'
-			tempvar idx
-			quietly generate `idx' = _n
-			tempvar idxstart idxend
-			collapse (min) `idxstart'=`idx' (max) `idxend'=`idx', by(`hid')
-			sort `idxstart'
-			tempvar idxmin idxmax
-			quietly generate `idxmin' = `idxstart'[max(1, _n - `knn')]
-			quietly generate `idxmax' = `idxend'[min(_N, _n + `knn')]
-			drop `idxstart' `idxend'
-			tempfile list_idx
-			quietly save "`list_idx'", replace
-			restore
-			
-			quietly merge n:1 `hid' `pid' using "`list_idx'", nogenerate
-			gsort -`taxincome'
-			quietly replace `idxmin' = _n if missing(`idxmin')
-			quietly replace `idxmax' = _n if missing(`idxmax')
-			tempvar halton_unif
-			quietly generate `halton_unif' = .
-			mata: st_store(., st_varindex(st_local("halton_unif")), halton(st_nobs(), 1))
-			tempvar idx
-			quietly generate `idx' = `idxmin' + (`idxmax' - `idxmin')*`halton_unif'
-			sort `idx'
-			quietly drop `halton_unif' `idx' `idxmin' `idxmax'
-			
 			// Determine a new rank in the individual distribution for people above the threshold
 			tempvar rank
 			quietly generate double `rank' = 1 - sum(`calweight')/`hh_popsize'
@@ -1494,30 +1437,6 @@ program bfmcorr, eclass
 			quietly egen _hid = group(`hid' `new_hid'), missing
 			gsort _hid `pid'
 			quietly by _hid: generate _pid = _n
-			
-			/*
-			// Add other households
-			tempvar below
-			quietly generate `below' = 0
-			append using "`hh_below'"
-			quietly replace `below' = 1 if missing(`below')
-			quietly replace `new_income' = `taxincome' if missing(`new_income')
-			
-			// Generate variables
-			quietly generate _correction = cond(`below', 1, 2)
-			label define _correction 1 "reweighted" 2 "replaced"
-			label values _correction _correction
-			quietly generate _weight = `calweight'
-			quietly generate _factor = cond(`new_income' == `taxincome', 1, `new_income'/`taxincome')
-			quietly replace `taxincome' = `new_income'
-			quietly replace `weight' = . if _correction == 2
-			
-			// Generate the new household and personal IDs
-			sort `taxincome'
-			quietly egen _hid = group(`hid' `new_hid'), missing
-			gsort _hid `pid'
-			quietly by _hid: generate _pid = _n
-			*/
 		}
 	}
 	else {
@@ -1703,17 +1622,20 @@ real vector calibrate(real vector d, real matrix X, real matrix Z, real vector M
 		st_select(Z_free, Z, free)
 		st_select(Z_cns, Z, !free)
 		st_select(d_free, d, free)
+		st_select(w_cns, w, !free)
 		
 		// Remove constrained observations from the margins
-		M_cns = M :- quadcolsum(Z_cns)'
+		M_cns = M :- quadcolsum(Z_cns :* w_cns)'
 		// Calculate population size
 		N = quadsum(d_free)
 		// Calculate survey margins
 		m = quadcolsum(Z_free :* d_free)'
+		
 		// Calculate the new weights
 		H = svsolve(quadcross(Z_free, d_free, X_free), M_cns - m, rank, 1e-16)
 		// Only update free weights
 		w[selectindex(free)] = d_free :* (1 :+ (X_free * H))
+		
 		// Check if there are invalid weights
 		below_one = (w :<= 1)
 		too_low = (w:/d :< 1/thetalimit)
@@ -1726,14 +1648,9 @@ real vector calibrate(real vector d, real matrix X, real matrix Z, real vector M
 			return(w)
 		}
 		
-		if (sum(below_one) >= 0.5*rows(w)) {
-			// Algorithm did not converge
-			st_local("success", "0")
-			return(w)
-		}
-		
 		// Constrain all the weights that violate the constraints
 		free[selectindex(too_low :| below_one)] = J(sum(too_low :| below_one), 1, 0)
+		
 		w[selectindex(too_low :| below_one)] = rowmax((
 			J(sum(too_low :| below_one), 1, 1),
 			d[selectindex(too_low :| below_one)]/thetalimit
@@ -1741,6 +1658,12 @@ real vector calibrate(real vector d, real matrix X, real matrix Z, real vector M
 		
 		free[selectindex(too_high)] = J(sum(too_high), 1, 0)
 		w[selectindex(too_high)] = d[selectindex(too_high)]*thetalimit
+		
+		if (sum(free) < 0.1*rows(w)) {
+			// Algorithm did not converge
+			st_local("success", "0")
+			return(w)
+		}
 		
 		i = i + 1
 	}
