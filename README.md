@@ -1,6 +1,6 @@
 # Stata command: `bfmcorr`
 
-Stata command for correcting survey data using tax data with the method described by Blanchet, Flores and Morgan in [“The Weight of the Rich: Improving Surveys Using Tax Data”, WID.world Working Paper 2018/12](https://wid.world/document/the-weight-of-the-rich-improving-surveys-using-tax-data-wid-world-working-paper-2018-12/).
+Stata command for correcting survey data using tax data with the method described by Blanchet, Flores and Morgan in [“The Weight of the Rich: Improving Surveys Using Tax Data”, in the Journal of Economic Inequality]([https://wid.world/document/the-weight-of-the-rich-improving-surveys-using-tax-data-wid-world-working-paper-2018-12/](https://link.springer.com/article/10.1007/s10888-021-09509-3)).
 
 ## Installation
 
@@ -23,9 +23,9 @@ ssc install bfmcorr
 
 ## Documentation
 
-For technical details about the methodology, see the paper [“The Weight of the Rich: Improving Surveys Using Tax Data”, WID.world Working Paper 2018/12](https://wid.world/document/the-weight-of-the-rich-improving-surveys-using-tax-data-wid-world-working-paper-2018-12/).
+For technical details about the methodology, see the paper [“The Weight of the Rich: Improving Surveys Using Tax Data”, in the Journal of Economic Inequality](https://link.springer.com/article/10.1007/s10888-021-09509-3).
 
-For the description of the command, type `help bfmcorr`. For the description of postestimation tools, type `help postbfm`.
+For the description of the command, type `help bfmcorr`. For the description of postestimation tools, type `help postbfm`. For simulating income distributions and draw biased samples, type `help bfmtoy`. 
 
 ## Example
 
